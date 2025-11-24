@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>📦 Verwaltung</h2>
+
+<form method="post" class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label">Gemeinde</label>
+        <select name="gemeinde" class="form-select" required>
+            <option value="">-- Bitte wählen --</option>
+            {% for g in gemeinden %}<option>{{ g }}</option>{% endfor %}
+        </select>
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label">Einsatzort</label>
+        <input list="einsatzorte" name="einsatzort" class="form-control">
+        <datalist id="einsatzorte">{% for e in einsatzorte %}<option>{{ e }}</option>{% endfor %}</datalist>
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label">Kategorie</label>
+        <input list="kategorien" name="kategorie" class="form-control">
+        <datalist id="kategorien">{% for k in kategorien %}<option>{{ k }}</option>{% endfor %}</datalist>
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label">Produkttyp</label>
+        <input list="produkttypen" name="produkttyp" class="form-control">
+        <datalist id="produkttypen">{% for p in produkttypen %}<option>{{ p }}</option>{% endfor %}</datalist>
+    </div>
+
+    <div class="col-12">
+        <label class="form-label">Produktdetails</label>
+        <textarea name="produktdetails" class="form-control" rows="2"></textarea>
+    </div>
+
+    <div class="col-md-3">
+        <label>Anzahl</label>
+        <input type="number" name="anzahl" value="1" class="form-control">
+    </div>
+
+    <div class="col-md-3">
+        <label>Hersteller</label>
+        <input list="hersteller" name="hersteller" class="form-control">
+        <datalist id="hersteller">{% for h in hersteller %}<option>{{ h }}</option>{% endfor %}</datalist>
+    </div>
+
+    <div class="col-md-3">
+        <label>Lieferant</label>
+        <input list="lieferanten" name="lieferant" class="form-control">
+        <datalist id="lieferanten">{% for l in lieferanten %}<option>{{ l }}</option>{% endfor %}</datalist>
+    </div>
+
+    <div class="col-12">
+        <label>Shop Link</label>
+        <input name="shop_link" class="form-control">
+    </div>
+
+    <div class="col-md-6">
+        <label>Preis netto</label>
+        <input type="number" step="0.01" name="preis_netto" class="form-control">
+    </div>
+
+    <div class="col-md-6">
+        <label>Preis brutto</label>
+        <input type="number" step="0.01" name="preis_brutto" class="form-control">
+    </div>
+
+    <div class="col-md-3 form-check mt-4">
+        <input type="checkbox" name="bezahlt" class="form-check-input" id="bezahlt">
+        <label for="bezahlt" class="form-check-label">Bezahlt</label>
+    </div>
+
+    <div class="col-md-3">
+        <label>Bestellt</label>
+        <input type="date" name="bestellt" class="form-control">
+    </div>
+
+    <div class="col-md-3">
+        <label>Geliefert</label>
+        <input type="date" name="geliefert" class="form-control">
+    </div>
+
+    <div class="col-md-3">
+        <label>Übergeben</label>
+        <input type="date" name="uebergeben" class="form-control">
+    </div>
+
+    <div class="col-12">
+        <label>Projekt</label>
+        <input name="projekt" class="form-control">
+    </div>
+
+    <div class="col-12">
+        <label>Bemerkungen</label>
+        <textarea name="bemerkungen" class="form-control" rows="2"></textarea>
+    </div>
+
+    <div class="col-12 text-end mt-3">
+        <button class="btn btn-success">💾 Hinzufügen</button>
+    </div>
+</form>
+
+<hr>
+
+<h4>📋 Aktuelle Produkte</h4>
+{% include 'tabelle_preview.html' %}
+{% endblock %}

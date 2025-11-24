@@ -1,0 +1,14 @@
+# GUI framework
+PyQt6>=6.6.1
+
+# Barcode and image generation
+python-barcode>=0.15.1
+pillow>=10.3.0
+
+# PDF label generator
+reportlab>=4.2.0
+
+# Data management and Excel/CSV import/export
+pandas>=2.2.2
+openpyxl>=3.1.2
+

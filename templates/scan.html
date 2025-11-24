@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>📷 Barcode Scannen</h2>
+<form method="post" class="mb-3">
+    <input type="text" name="code" class="form-control" placeholder="Code scannen oder eingeben...">
+    <button class="btn btn-primary mt-2">🔍 Suchen</button>
+</form>
+{% if item %}
+<div class="card p-3">
+    <h5>{{ item[5] }} ({{ item[1] }})</h5>
+    <p><b>Gemeinde:</b> {{ item[2] }}<br>
+        <b>Kategorie:</b> {{ item[4] }}<br>
+        <b>Preis Brutto:</b> {{ item[12] or '' }} €<br>
+        <b>Projekt:</b> {{ item[17] or '' }}
+    </p>
+</div>
+{% endif %}
+{% endblock %}

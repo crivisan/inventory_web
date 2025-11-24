@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container text-center py-5">
+
+    <h2 class="mb-5 fw-bold">📦Inventar System</h2>
+
+    <div class="row justify-content-center g-4">
+        <!-- Verwaltung -->
+        <div class="col-md-5">
+            <a href="{{ url_for('verwaltung') }}" class="text-decoration-none">
+                <div class="card shadow-lg border-0 h-100 hover-scale">
+                    <div class="card-body py-5">
+                        <h3 class="card-title text-success mb-3">🧾 Verwaltung</h3>
+                        <p class="card-text text-muted">Produkte hinzufügen</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Tabelle -->
+        <div class="col-md-5">
+            <a href="{{ url_for('tabelle') }}" class="text-decoration-none">
+                <div class="card shadow-lg border-0 h-100 hover-scale">
+                    <div class="card-body py-5">
+                        <h3 class="card-title text-primary mb-3">📋 Tabelle</h3>
+                        <p class="card-text text-muted">Gesamte Inventarliste anzeigen, bearbeiten und exportieren</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Scan -->
+        <div class="col-md-5">
+            <a href="{{ url_for('scan') }}" class="text-decoration-none">
+                <div class="card shadow-lg border-0 h-100 hover-scale">
+                    <div class="card-body py-5">
+                        <h3 class="card-title text-warning mb-3">🔍 Scan</h3>
+                        <p class="card-text text-muted">Produktinformationen per Barcode anzeigen</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Berichte -->
+        <div class="col-md-5">
+            <a href="{{ url_for('berichte') }}" class="text-decoration-none">
+                <div class="card shadow-lg border-0 h-100 hover-scale">
+                    <div class="card-body py-5">
+                        <h3 class="card-title text-danger mb-3">📊 Berichte</h3>
+                        <p class="card-text text-muted">Kostenübersicht und Statistiken nach Zeitraum</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hover-scale {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .hover-scale:hover {
+        transform: translateY(-5px) scale(1.03);
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    }
+</style>
+{% endblock %}
