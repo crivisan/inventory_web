@@ -12,3 +12,13 @@ reportlab>=4.2.0
 pandas>=2.2.2
 openpyxl>=3.1.2
 
+# Core web framework
+Flask==3.0.3
+Flask-Login==0.6.3
+
+# Utility libraries
+gunicorn==22.0.0
+pathlib==1.0.1
+
+# Optional (used by Pandas Excel export)
+XlsxWriter==3.2.0
