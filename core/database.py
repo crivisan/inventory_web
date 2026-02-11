@@ -28,8 +28,7 @@ def create_schema(conn):
 
     # --- main products table ---
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        CREATE TABLE IF NOT EXISTS inventory (
             code TEXT UNIQUE NOT NULL,
             gemeinde TEXT NOT NULL,
             einsatzort TEXT,
@@ -78,20 +77,20 @@ def create_users_table(conn):
 def migrate_old_schema(conn):
     """If old 'products' schema exists, migrate to new one."""
     cur = conn.cursor()
-    cols = table_columns(conn, "products")
+    cols = table_columns(conn, "inventory")
     if not cols:
         return False
 
     print("Old schema detected, migrating...")
-    cur.execute("ALTER TABLE products RENAME TO products_old;")
+    cur.execute("ALTER TABLE inventory RENAME TO products_old;")
     create_schema(conn)
 
     # Copy overlapping fields
     existing = table_columns(conn, "products_old")
-    common = [c for c in existing if c in ("id", "code", "bemerkungen", "gemeinde")]
+    common = [c for c in existing if c in ("code", "bemerkungen", "gemeinde")]
     if common:
         fields = ", ".join(common)
-        cur.execute(f"INSERT INTO products ({fields}) SELECT {fields} FROM products_old;")
+        cur.execute(f"INSERT INTO inventory ({fields}) SELECT {fields} FROM products_old;")
 
     conn.commit()
     return True
@@ -102,10 +101,10 @@ def init_db():
     conn = get_connection()
     cur = conn.cursor()
     create_users_table(conn)
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='products';")
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='inventory';")
     if cur.fetchone():
         # Products table exists — check for migration and ensure options table
-        cols = table_columns(conn, "products")
+        cols = table_columns(conn, "inventory")
         if len(cols) < 10:  # very old schema heuristic
             migrate_old_schema(conn)
         else:
@@ -134,7 +133,7 @@ def add_product_safe(**kwargs):
         with conn:
             fields = ", ".join(kwargs.keys())
             placeholders = ", ".join(["?"] * len(kwargs))
-            conn.execute(f"INSERT INTO products ({fields}) VALUES ({placeholders})", tuple(kwargs.values()))
+            conn.execute(f"INSERT INTO inventory ({fields}) VALUES ({placeholders})", tuple(kwargs.values()))
     except Exception as e:
         conn.rollback()
         raise e
@@ -146,7 +145,7 @@ def get_all_products():
     """Return all product rows sorted by newest first."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM products ORDER BY id DESC;")
+    cur.execute("SELECT * FROM inventory ORDER BY code ASC;")
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -156,7 +155,7 @@ def get_product_by_code(code):
     """Return one product row by its barcode/code."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM products WHERE code=?;", (code,))
+    cur.execute("SELECT * FROM inventory WHERE code=?;", (code,))
     row = cur.fetchone()
     conn.close()
     return row

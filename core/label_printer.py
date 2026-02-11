@@ -26,7 +26,7 @@ def make_pdf_label(code_text, label_text=None, width_mm=22, height_mm=6):
     bc.drawOn(c, x, y)
 
     # --- draw text below barcode ---
-    text_to_show = code_text#label_text or code_text
+    text_to_show = code_text #label_text or code_text
     c.setFont("Helvetica", 3)
     text_width = c.stringWidth(text_to_show, "Helvetica", 3)
     c.drawString((width_mm * mm - text_width) / 1.5, y - 1 * mm, text_to_show)
@@ -48,9 +48,9 @@ def generate_label_for_product(product):
     """
     Create one label PDF for a single DB product entry.
     """
-    code = product[1]
-    gemeinde = product[2]
-    projekt = product[17] or ""
+    code = product[0]
+    gemeinde = product[1]
+    projekt = product[2] or ""
     label_text = f"Land-lieben: {gemeinde} - {projekt}" if projekt else f"Land-lieben: {gemeinde}"
     return make_pdf_label(code, label_text)
 

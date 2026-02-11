@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <h2>📋 Inventar Tabelle</h2>
 
 <!-- Toolbar -->
@@ -14,30 +15,35 @@
     </div>
 </div>
 
-<!-- Scrollable table -->
 <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
     <table id="inventoryTable" class="table table-striped table-hover table-bordered align-middle">
         <thead class="table-success sticky-top">
             <tr>
                 <th><input type="checkbox" id="selectAll"></th>
-                <th>ID</th>
                 <th>Code</th>
+                <th>Projekt</th>
                 <th>Gemeinde</th>
                 <th>Einsatzort</th>
                 <th>Kategorie</th>
-                <th>Produkttyp</th>
+                <th>Produkt</th>
                 <th>Produktdetails</th>
+                <th>Serialnummer</th>
+                <th>KV-ID</th>
+                <th>Einzelpreis Netto</th>
+                <th>Einzelpreis Brutto</th>
+                <th>MwSt (%)</th>
                 <th>Anzahl</th>
-                <th>Hersteller</th>
-                <th>Lieferant</th>
-                <th>Shop-Link</th>
-                <th>Preis Netto</th>
-                <th>Preis Brutto</th>
-                <th>Bezahlt</th>
-                <th>Bestellt am</th>
+                <th>ELO-Nummer</th>
                 <th>Geliefert am</th>
+                <th>Lieferumfang</th>
+                <th>Funktionsprüfung</th>
+                <th>Notiz</th>
+                <th>Getestet am</th>
+                <th>Getestet von</th>
+                <th>Hersteller</th>
+                <th>Anschaffungsjahr</th>
+                <th>Bestellt am</th>
                 <th>Übergeben am</th>
-                <th>Projekt</th>
                 <th>Bemerkungen</th>
                 <th>Erstellt von</th>
                 <th>Geändert von</th>
@@ -57,44 +63,146 @@
 </div>
 
 <script>
+
+    const columns = [
+        "code",
+        "projekt",
+        "gemeinde",
+        "einsatzort",
+        "kategorie",
+        "produkt",
+        "produktdetails",
+        "serialnummer",
+        "kv_id",
+        "einzelpreis_netto",
+        "einzelpreis_brutto",
+        "mwst_satz",
+        "anzahl",
+        "elo_nummer",
+        "geliefert_am",
+        "lieferumfang",
+        "funktionspruefung",
+        "notiz",
+        "getestet_am",
+        "getestet_von",
+        "hersteller",
+        "anschaffungsjahr",
+        "bestellt_am",
+        "uebergeben_am",
+        "bemerkungen",
+        "erstellt_von",
+        "geaendert_von"
+    ];
+
     const table = document.getElementById("inventoryTable");
     const searchBox = document.getElementById("searchBox");
     const editToggle = document.getElementById("editToggle");
     const saveBtn = document.getElementById("saveBtn");
     const deleteBtn = document.getElementById("deleteBtn");
     const selectAll = document.getElementById("selectAll");
-    let editMode = false;
 
-    // --- Toggle edit mode ---
+    let editMode = false;
+    let changedRows = new Set();
+
+
+    // ------------------ EDIT TOGGLE ------------------
     editToggle.addEventListener("click", () => {
-        editMode = !editMode;
-        document.querySelectorAll("#inventoryTable td[contenteditable]").forEach(td => {
-            td.contentEditable = editMode;
-            td.classList.toggle("bg-warning-subtle", editMode);
+
+        editMode = true;
+
+        document.querySelectorAll("#inventoryTable tbody td").forEach(td => {
+            td.contentEditable = true;
+            td.classList.add("bg-warning-subtle");
         });
-        saveBtn.disabled = !editMode;
-        editToggle.textContent = editMode ? "🔒 Bearbeiten beenden" : "✏️ Bearbeiten";
+
+        editToggle.disabled = true;     // disable edit button
+        saveBtn.disabled = false;       // enable save button
     });
 
-    // --- Simple search filter ---
+
+    // ------------------ SEARCH ------------------
     searchBox.addEventListener("keyup", () => {
         const filter = searchBox.value.toLowerCase();
         const rows = table.querySelectorAll("tbody tr");
+
         rows.forEach(row => {
-            const text = row.innerText.toLowerCase();
-            row.style.display = text.includes(filter) ? "" : "none";
+            row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
         });
     });
 
-    // --- Select all ---
+
+    // ------------------ SELECT ALL ------------------
     selectAll.addEventListener("change", () => {
-        const checkboxes = document.querySelectorAll(".row-check");
-        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        document.querySelectorAll(".row-check").forEach(cb => {
+            cb.checked = selectAll.checked;
+        });
     });
 
-    // --- Delete selected rows ---
+
+    // ------------------ TRACK CHANGES ------------------
+    table.addEventListener("input", (e) => {
+        const row = e.target.closest("tr");
+        if (row) {
+            changedRows.add(row.dataset.id);
+        }
+    });
+
+
+    // ------------------ SAVE ------------------
+    saveBtn.addEventListener("click", () => {
+
+        if (changedRows.size === 0) {
+            alert("Keine Änderungen erkannt.");
+            return;
+        }
+
+        const updates = [];
+
+        changedRows.forEach(code => {
+            const row = table.querySelector(`tr[data-id="${code}"]`);
+            const cells = Array.from(row.querySelectorAll("td")).slice(1);
+
+            let rowData = {};
+            columns.forEach((col, index) => {
+                rowData[col] = cells[index]?.innerText.trim() || null;
+            });
+
+            updates.push(rowData);
+        });
+
+        fetch("/save_table", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ updates })
+        })
+            .then(r => r.json())
+            .then(resp => {
+
+                alert(resp.message || "Änderungen gespeichert");
+
+                changedRows.clear();
+
+                // Exit edit mode
+                document.querySelectorAll("#inventoryTable tbody td").forEach(td => {
+                    td.contentEditable = false;
+                    td.classList.remove("bg-warning-subtle");
+                });
+
+                editToggle.disabled = false;
+                saveBtn.disabled = true;
+
+                location.reload();
+            })
+            .catch(err => alert("Fehler beim Speichern: " + err));
+    });
+
+
+    // ------------------ DELETE ------------------
     deleteBtn.addEventListener("click", () => {
-        const selected = Array.from(document.querySelectorAll(".row-check:checked")).map(cb => cb.closest("tr"));
+
+        const selected = Array.from(document.querySelectorAll(".row-check:checked"))
+            .map(cb => cb.closest("tr"));
+
         if (selected.length === 0) {
             alert("Bitte wählen Sie mindestens eine Zeile zum Löschen aus.");
             return;
@@ -103,6 +211,7 @@
         if (!confirm(`${selected.length} Zeile(n) wirklich löschen?`)) return;
 
         const ids = selected.map(row => row.dataset.id);
+
         fetch("/delete_rows", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -116,56 +225,19 @@
             .catch(err => alert("Fehler beim Löschen: " + err));
     });
 
-    // --- Track edits ---
-    let changedRows = new Set();
 
-    table.addEventListener("input", (e) => {
-        const row = e.target.closest("tr");
-        if (row) {
-            changedRows.add(row.dataset.id); // mark row as changed
-        }
-    });
-
-    // --- Save only changed rows ---
-    saveBtn.addEventListener("click", () => {
-        if (changedRows.size === 0) {
-            alert("Keine Änderungen erkannt.");
-            return;
-        }
-
-        const updates = [];
-        changedRows.forEach(id => {
-            const row = table.querySelector(`tr[data-id="${id}"]`);
-            const cells = Array.from(row.querySelectorAll("td")).slice(1).map(td => td.innerText.trim());
-            updates.push(cells);
-        });
-
-        fetch("/save_table", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ updates })
-        })
-            .then(r => r.json())
-            .then(resp => {
-                alert(resp.message || "Änderungen gespeichert");
-                changedRows.clear(); // reset tracker
-                location.reload(); // refresh the page
-            })
-            .catch(err => alert("Fehler beim Speichern: " + err));
-    });
-
-    // --- Export CSV ---
+    // ------------------ EXPORT ------------------
     document.getElementById("exportBtn").addEventListener("click", () => {
-        const link = document.createElement("a");
-        link.href = "/export";
-        link.download = "Inventar_Export.csv"; // prompts "Save As" dialog
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        window.location.href = "/export";
     });
-    // --- Print selected labels ---
+
+
+    // ------------------ PRINT ------------------
     document.getElementById("printBtn").addEventListener("click", () => {
-        const selected = Array.from(document.querySelectorAll(".row-check:checked")).map(cb => cb.closest("tr"));
+
+        const selected = Array.from(document.querySelectorAll(".row-check:checked"))
+            .map(cb => cb.closest("tr"));
+
         if (selected.length === 0) {
             alert("Bitte wählen Sie mindestens eine Zeile zum Drucken aus.");
             return;
@@ -174,14 +246,15 @@
         if (!confirm(`${selected.length} Etikett(en) jetzt generieren und herunterladen?`)) return;
 
         const ids = selected.map(r => r.dataset.id);
+
         fetch("/print_selected", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ids })
         })
             .then(resp => {
-                if (resp.ok) return resp.blob();
-                throw new Error("Serverfehler");
+                if (!resp.ok) throw new Error("Serverfehler");
+                return resp.blob();
             })
             .then(blob => {
                 const url = window.URL.createObjectURL(blob);
@@ -195,7 +268,6 @@
             })
             .catch(err => alert("Fehler beim Herunterladen: " + err));
     });
-
 
 </script>
 

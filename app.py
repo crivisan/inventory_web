@@ -2,14 +2,14 @@ from flask import (
     Flask, render_template, request, redirect, url_for, flash, send_file
 )
 import os
-from core import database, label_printer, export_utils
+from core import database, label_printer, export_utils, user_utils, utils
 import json
 from pathlib import Path
 
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from core import user_utils
 import io
 import zipfile
+import datetime
 
 
 app = Flask(__name__)
@@ -78,76 +78,110 @@ def logout():
 def verwaltung():
     from core import database, label_printer, utils
 
-    # --- Load dropdown data ---
-    einsatzorte = database.get_options("einsatzort")
-    kategorien = database.get_options("kategorie")
-    produkttypen = database.get_options("produkttyp")
+    einsatzorte = database.get_options("einsatzorte")
     hersteller = database.get_options("hersteller")
-    lieferanten = database.get_options("lieferant")
-    gemeinden = database.get_all_gemeinden() 
+    gemeinden = database.get_all_gemeinden()
 
     if request.method == "POST":
         form = request.form
+
+        # --- Load abbreviation ---
         with open(data_path, "r", encoding="utf-8") as f:
             gdata = json.load(f)
-        abbr = (gdata["Gemeinden"].get(form["gemeinde"])
+
+        abbr = (
+            gdata["Gemeinden"].get(form["gemeinde"])
             or gdata["VGs"].get(form["gemeinde"])
-                )
+        )
+
         if not abbr:
             flash("Keine Abkürzung für die ausgewählte Gemeinde gefunden.", "danger")
             return redirect(url_for("verwaltung"))
+
         gemeinde = form["gemeinde"]
-        purchase_date = form["bestellt"] or "2025-01-01"
+        dt = datetime.date.today()
+
+        purchase_date = form.get("bestellt_am") or dt.isoformat()
         code = utils.generate_code(abbr, purchase_date)
 
+        # ---------------- VAT + PRICE ----------------
+        einzelpreis_netto = float(form.get("preis_netto") or 0) or None
+        einzelpreis_brutto = float(form.get("preis_brutto") or 0) or None
+
+        mwst_raw = form.get("mwst_satz")
+
+        if mwst_raw == "custom":
+            mwst_satz = float(form.get("mwst_custom") or 0)
+        else:
+            mwst_satz = float(mwst_raw or 19)
+
+        einzelpreis_netto, einzelpreis_brutto = utils.calculate_prices(
+            einzelpreis_netto,
+            einzelpreis_brutto,
+            mwst_satz
+        )
+
+        # ---------------- CATEGORY ----------------
+        is_verbrauch = False  # optional if you removed checkbox
+        kategorie = utils.assign_category(einzelpreis_netto or 0, is_verbrauch)
+
+        # ---------------- DATA DICT ----------------
         data = dict(
             code=code,
+            projekt=form.get("projekt"),
             gemeinde=gemeinde,
-            einsatzort=form["einsatzort"],
-            kategorie=form["kategorie"],
-            produkttyp=form["produkttyp"],
-            produktdetails=form["produktdetails"],
+            einsatzort=form.get("einsatzort"),
+            kategorie=int(kategorie) if kategorie else None,
+            produkt=form.get("produkt"),
+            produktdetails=form.get("produktdetails"),
+            serialnummer=form.get("serialnummer"),
+            kv_id=form.get("kv_id"),
+            einzelpreis_netto=einzelpreis_netto,
+            einzelpreis_brutto=einzelpreis_brutto,
+            mwst_satz=mwst_satz,
             anzahl=int(form.get("anzahl", 1)),
-            hersteller=form["hersteller"],
-            lieferant=form["lieferant"],
-            shop_link=form["shop_link"],
-            preis_netto=float(form["preis_netto"] or 0),
-            preis_brutto=float(form["preis_brutto"] or 0),
-            bezahlt="Ja" if "bezahlt" in form else "Nein",
+            elo_nummer=form.get("elo_nummer"),
+            geliefert_am=form.get("geliefert_am") or None,
+            lieferumfang=form.get("lieferumfang"),
+            funktionspruefung=form.get("funktionspruefung"),
+            notiz=form.get("notiz"),
+            getestet_am=form.get("getestet_am"),
+            getestet_von=form.get("getestet_von"),
+            hersteller=form.get("hersteller"),
+            anschaffungsjahr=purchase_date[:4] if purchase_date else None,
             bestellt_am=purchase_date,
-            geliefert_am=form.get("geliefert") or "2025-01-01",
-            uebergeben_am=form.get("uebergeben") or "2025-01-01",
-            projekt=form["projekt"],
-            bemerkungen=form["bemerkungen"],
+            uebergeben_am=form.get("uebergeben_am") or None,
+            bemerkungen=form.get("bemerkungen"),
             erstellt_von=current_user.username,
             geaendert_von=current_user.username,
         )
 
-        # Save dropdown options
-        for f in ["einsatzort", "kategorie", "produkttyp", "hersteller", "lieferant"]:
-            database.add_option(f, form[f])
+        # ---------------- SAVE DROPDOWN OPTIONS ----------------
+        if form.get("einsatzort"):
+            database.add_option("einsatzorte", form.get("einsatzort"))
 
-        # Save product
-        data["erstellt_von"] = current_user.username
+        if form.get("hersteller"):
+            database.add_option("hersteller", form.get("hersteller"))
+
+        # ---------------- SAVE PRODUCT ----------------
         database.add_product_safe(**data)
+
         label_text = f"Land-lieben: {gemeinde} - {data['projekt']}"
         label_printer.make_pdf_label(code, label_text)
 
-        flash(f"Produkt '{data['produkttyp']}' hinzugefügt.", "success")
+        flash(f"Produkt '{data['produkt']}' hinzugefügt.", "success")
         return redirect(url_for("verwaltung"))
 
-    # --- show form with existing entries preview ---
     products = database.get_all_products()
+
     return render_template(
         "verwaltung.html",
         einsatzorte=einsatzorte,
-        kategorien=kategorien,
-        produkttypen=produkttypen,
         hersteller=hersteller,
-        lieferanten=lieferanten,
         gemeinden=gemeinden,
         products=products,
     )
+
 
 
 
@@ -166,56 +200,103 @@ from flask import jsonify, request
 def save_table():
     data = request.get_json()
     updates = data.get("updates", [])
+
     conn = database.get_connection()
     cur = conn.cursor()
 
     changed = 0
+
     for row in updates:
-        # we expect row to be a list of table values
-        if not row or len(row) < 19:
+        code = row.get("code")
+        if not code:
             continue
 
-        product_id = row[0]
-        # Fetch current DB state for this product
-        cur.execute("SELECT * FROM products WHERE id=?", (product_id,))
+        # Fetch current DB state
+        cur.execute("SELECT * FROM inventory WHERE code=?", (code,))
         existing = cur.fetchone()
         if not existing:
             continue
 
-        # Only update if something actually changed
-        current_values = tuple(existing[1:19])
-        new_values = tuple(row[1:19])
-        if current_values != new_values:
-            cur.execute("""
-                UPDATE products SET
-                    code=?, gemeinde=?, einsatzort=?, kategorie=?, produkttyp=?, produktdetails=?, anzahl=?,
-                    hersteller=?, lieferant=?, shop_link=?, preis_netto=?, preis_brutto=?, bezahlt=?,
-                    bestellt_am=?, geliefert_am=?, uebergeben_am=?, projekt=?, bemerkungen=?, 
-                    geaendert_von=?
-                WHERE id=?
-            """, (
-                *new_values,
-                current_user.username,
-                product_id
-            ))
-            changed += 1
+        # Build new values tuple (EXACT schema order except code & erstellt_von)
+        new_values = (
+            row.get("projekt"),
+            row.get("gemeinde"),
+            row.get("einsatzort"),
+            row.get("kategorie"),
+            row.get("produkt"),
+            row.get("produktdetails"),
+            row.get("serialnummer"),
+            row.get("kv_id"),
+            row.get("einzelpreis_netto"),
+            row.get("einzelpreis_brutto"),
+            row.get("mwst_satz"),
+            row.get("anzahl"),
+            row.get("elo_nummer"),
+            row.get("geliefert_am"),
+            row.get("lieferumfang"),
+            row.get("funktionspruefung"),
+            row.get("notiz"),
+            row.get("getestet_am"),
+            row.get("getestet_von"),
+            row.get("hersteller"),
+            row.get("anschaffungsjahr"),
+            row.get("bestellt_am"),
+            row.get("uebergeben_am"),
+            row.get("bemerkungen"),
+            current_user.username,  # geaendert_von
+            code
+        )
+
+        cur.execute("""
+            UPDATE inventory SET
+                projekt=?,
+                gemeinde=?,
+                einsatzort=?,
+                kategorie=?,
+                produkt=?,
+                produktdetails=?,
+                serialnummer=?,
+                kv_id=?,
+                einzelpreis_netto=?,
+                einzelpreis_brutto=?,
+                mwst_satz=?,
+                anzahl=?,
+                elo_nummer=?,
+                geliefert_am=?,
+                lieferumfang=?,
+                funktionspruefung=?,
+                notiz=?,
+                getestet_am=?,
+                getestet_von=?,
+                hersteller=?,
+                anschaffungsjahr=?,
+                bestellt_am=?,
+                uebergeben_am=?,
+                bemerkungen=?,
+                geaendert_von=?
+            WHERE code=?
+        """, new_values)
+
+        changed += 1
 
     conn.commit()
     conn.close()
     return jsonify({"message": f"{changed} Zeile(n) aktualisiert."})
 
 
+
 @app.route("/delete_rows", methods=["POST"])
 def delete_rows():
     data = request.get_json()
     ids = data.get("ids", [])
+    print(ids)
     if not ids:
         return jsonify({"message": "Keine IDs angegeben."})
 
     conn = database.get_connection()
     cur = conn.cursor()
     for pid in ids:
-        cur.execute("DELETE FROM products WHERE id=?", (pid,))
+        cur.execute("DELETE FROM inventory WHERE code=?", (pid,))
     conn.commit()
     conn.close()
     return jsonify({"message": f"{len(ids)} Zeile(n) gelöscht."})
@@ -230,7 +311,7 @@ def print_selected():
     conn = database.get_connection()
     cur = conn.cursor()
     cur.execute(
-        f"SELECT * FROM products WHERE id IN ({','.join(['?'] * len(ids))})",
+        f"SELECT * FROM inventory WHERE code IN ({','.join(['?'] * len(ids))})",
         ids
     )
     rows = cur.fetchall()
@@ -241,7 +322,7 @@ def print_selected():
     with zipfile.ZipFile(zip_buffer, "w") as zipf:
         for p in rows:
             label_text = f"Land-lieben: {p[2]} - {p[17]}"
-            filepath = label_printer.make_pdf_label(p[1], label_text)
+            filepath = label_printer.make_pdf_label(p[0], label_text)
             zipf.write(filepath, arcname=os.path.basename(filepath))
     zip_buffer.seek(0)
 
@@ -292,8 +373,8 @@ def print_labels():
     if request.method == "POST":
         products = database.get_all_products()
         for p in products:
-            label_text = f"Land-lieben: {p[2]} - {p[17]}"
-            label_printer.make_pdf_label(p[1], label_text)
+            label_text = f"Land-lieben: {p[2]} - {p[17]}" ##WRONG MAPPING, not used though
+            label_printer.make_pdf_label(p[0], label_text)
         flash("Etiketten wurden generiert. Ordner wurde geöffnet.", "success")
     return render_template("print.html")
 

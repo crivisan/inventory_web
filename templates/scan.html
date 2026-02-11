@@ -7,11 +7,11 @@
 </form>
 {% if item %}
 <div class="card p-3">
-    <h5>{{ item[5] }} ({{ item[1] }})</h5>
-    <p><b>Gemeinde:</b> {{ item[2] }}<br>
+    <h5>{{ item[5] }} ({{ item[0] }})</h5>
+    <p><b>Gemeinde:</b> {{ item[1] }}<br>
         <b>Kategorie:</b> {{ item[4] }}<br>
         <b>Preis Brutto:</b> {{ item[12] or '' }} €<br>
-        <b>Projekt:</b> {{ item[17] or '' }}
+        <b>Projekt:</b> {{ item[2] or '' }}
     </p>
 </div>
 {% endif %}
