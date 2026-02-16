@@ -1,70 +1,56 @@
 from pathlib import Path
+from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.graphics.barcode import code128
-from reportlab.pdfgen import canvas
-from . import database
-import os
-
+from PyPDF2 import PdfMerger
 LABEL_DIR = Path("./data/labels")
 LABEL_DIR.mkdir(parents=True, exist_ok=True)
 
+def make_pdf_label(
+    code_text,
+    output_dir,
+    label_text="LandLieben",
+    width_mm=22,
+    height_mm=6,
+):
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-def make_pdf_label(code_text, label_text=None, width_mm=22, height_mm=6):
-    """
-    Create one PDF label (vector barcode + optional text) for thermal printers.
-    Default size: 40x30 mm (Phomemo M110).
-    """
-    file_name = f"{code_text}.pdf"
-    path = LABEL_DIR / file_name
-    c = canvas.Canvas(str(path), pagesize=(width_mm * mm, height_mm * mm))
+    file_path = output_dir / f"{code_text}.pdf"
+    c = canvas.Canvas(str(file_path), pagesize=(width_mm * mm, height_mm * mm))
 
-    # --- draw barcode ---
-    bc = code128.Code128(code_text, barWidth=0.1 * mm,
-                         barHeight=height_mm * 0.4 * mm)
+    bc = code128.Code128(
+        code_text,
+        barWidth=0.1 * mm,
+        barHeight=height_mm * 0.4 * mm,
+    )
+
     x = (width_mm * mm - bc.width) / 2
     y = (height_mm * mm - bc.height) / 2
     bc.drawOn(c, x, y)
 
-    # --- draw text below barcode ---
-    text_to_show = code_text #label_text or code_text
+    text_to_show = label_text or code_text
     c.setFont("Helvetica", 3)
     text_width = c.stringWidth(text_to_show, "Helvetica", 3)
-    c.drawString((width_mm * mm - text_width) / 1.5, y - 1 * mm, text_to_show)
+    c.drawString((width_mm * mm - text_width) / 2, y - 1 * mm, text_to_show)
 
     c.showPage()
     c.save()
-    return path
+
+    return file_path
 
 
-def open_label_folder():
-    """Open the folder with generated PDF labels."""
-    try:
-        os.startfile(LABEL_DIR)
-    except Exception:
-        print(f"Labels saved under: {LABEL_DIR}")
+def merge_pdfs(pdf_paths, output_file):
+    merger = PdfMerger()
 
+    for pdf in pdf_paths:
+        merger.append(str(pdf))
 
-def generate_label_for_product(product):
-    """
-    Create one label PDF for a single DB product entry.
-    """
-    code = product[0]
-    gemeinde = product[1]
-    projekt = product[2] or ""
-    label_text = f"Land-lieben: {gemeinde} - {projekt}" if projekt else f"Land-lieben: {gemeinde}"
-    return make_pdf_label(code, label_text)
+    output_file = Path(output_file)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
+    merger.write(str(output_file))
+    merger.close()
 
-def generate_labels(products):
-    """Generate PDF labels for a list of DB products."""
-    created = []
-    for p in products:
-        created.append(generate_label_for_product(p))
-    open_label_folder()
-    return created
+    return output_file
 
-
-def generate_all_labels():
-    """Generate labels for all DB records."""
-    all_products = database.get_all_products()
-    return generate_labels(all_products)

@@ -8,7 +8,6 @@ from pathlib import Path
 
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import io
-import zipfile
 import datetime
 
 
@@ -167,7 +166,7 @@ def verwaltung():
         database.add_product_safe(**data)
 
         label_text = f"Land-lieben: {gemeinde} - {data['projekt']}"
-        label_printer.make_pdf_label(code, label_text)
+        #label_printer.make_pdf_label(code, label_text)
 
         flash(f"Produkt '{data['produkt']}' hinzugefügt.", "success")
         return redirect(url_for("verwaltung"))
@@ -305,11 +304,13 @@ def delete_rows():
 def print_selected():
     data = request.get_json()
     ids = data.get("ids", [])
+
     if not ids:
         return jsonify({"message": "Keine IDs angegeben."})
 
     conn = database.get_connection()
     cur = conn.cursor()
+
     cur.execute(
         f"SELECT * FROM inventory WHERE code IN ({','.join(['?'] * len(ids))})",
         ids
@@ -317,22 +318,37 @@ def print_selected():
     rows = cur.fetchall()
     conn.close()
 
-    # Create ZIP archive in memory
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w") as zipf:
-        for p in rows:
-            label_text = f"Land-lieben: {p[2]} - {p[17]}"
-            filepath = label_printer.make_pdf_label(p[0], label_text)
-            zipf.write(filepath, arcname=os.path.basename(filepath))
-    zip_buffer.seek(0)
+    if not rows:
+        return jsonify({"message": "Keine Produkte gefunden."})
 
-    # Send ZIP for download
+    output_dir = Path("data/temp_labels")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    pdf_paths = []
+
+    for p in rows:
+        code = p[0]  # assuming code is first column
+
+        pdf_path = label_printer.make_pdf_label(
+            code_text=code,
+            output_dir=output_dir,
+            label_text=code  # 👈 important
+        )
+
+        pdf_paths.append(pdf_path)
+
+    # Merge into one PDF
+    final_pdf_path = output_dir / "merged_labels.pdf"
+    label_printer.merge_pdfs(pdf_paths, final_pdf_path)
+
     return send_file(
-        zip_buffer,
-        mimetype="application/zip",
+        final_pdf_path,
+        mimetype="application/pdf",
         as_attachment=True,
-        download_name="Etiketten_Landlieben.zip"
+        download_name="Etiketten_Landlieben.pdf"
     )
+
+
 
 
 @app.route("/berichte")
@@ -365,18 +381,7 @@ def export_csv():
     return send_file(path, as_attachment=True)
 
 
-# ---------------------------------------------------------
-# Print – Generate barcode labels
-# ---------------------------------------------------------
-@app.route("/print", methods=["GET", "POST"])
-def print_labels():
-    if request.method == "POST":
-        products = database.get_all_products()
-        for p in products:
-            label_text = f"Land-lieben: {p[2]} - {p[17]}" ##WRONG MAPPING, not used though
-            label_printer.make_pdf_label(p[0], label_text)
-        flash("Etiketten wurden generiert. Ordner wurde geöffnet.", "success")
-    return render_template("print.html")
+
 
 
 # ---------------------------------------------------------

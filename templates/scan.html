@@ -1,18 +1,106 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <h2>📷 Barcode Scannen</h2>
-<form method="post" class="mb-3">
-    <input type="text" name="code" class="form-control" placeholder="Code scannen oder eingeben...">
+
+<form method="post" class="mb-4">
+    <input type="text" name="code" class="form-control" placeholder="Code scannen oder eingeben..." autofocus>
     <button class="btn btn-primary mt-2">🔍 Suchen</button>
 </form>
+
 {% if item %}
-<div class="card p-3">
-    <h5>{{ item[5] }} ({{ item[0] }})</h5>
-    <p><b>Gemeinde:</b> {{ item[1] }}<br>
-        <b>Kategorie:</b> {{ item[4] }}<br>
-        <b>Preis Brutto:</b> {{ item[12] or '' }} €<br>
-        <b>Projekt:</b> {{ item[2] or '' }}
-    </p>
+<div class="card shadow-sm p-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">
+            {{ item["produkt"] }}
+            <small class="text-muted">({{ item["code"] }})</small>
+        </h4>
+        <span class="badge bg-success">{{ item["gemeinde"] }}</span>
+    </div>
+
+    <hr>
+
+    <div class="row">
+
+        <!-- BASIC INFO -->
+        <div class="col-md-6">
+            <h6>📦 Basisdaten</h6>
+            <p>
+                <b>Projekt:</b> {{ item["projekt"] or '-' }}<br>
+                <b>Einsatzort:</b> {{ item["einsatzort"] or '-' }}<br>
+                <b>Kategorie:</b> {{ item["kategorie"] or '-' }}<br>
+                <b>Anzahl:</b> {{ item["anzahl"] or 1 }}
+            </p>
+        </div>
+
+        <!-- IDENTIFICATION -->
+        <div class="col-md-6">
+            <h6>🔎 Identifikation</h6>
+            <p>
+                <b>Serialnummer:</b> {{ item["serialnummer"] or '-' }}<br>
+                <b>KV-ID:</b> {{ item["kv_id"] or '-' }}<br>
+                <b>ELO-Nummer:</b> {{ item["elo_nummer"] or '-' }}
+            </p>
+        </div>
+
+        <!-- PRICES -->
+        <div class="col-md-6">
+            <h6>💰 Preis</h6>
+            <p>
+                <b>Netto:</b> {{ item["einzelpreis_netto"] or '-' }} €<br>
+                <b>Brutto:</b> {{ item["einzelpreis_brutto"] or '-' }} €<br>
+                <b>MwSt:</b> {{ item["mwst_satz"] or '-' }} %
+            </p>
+        </div>
+
+        <!-- DATES -->
+        <div class="col-md-6">
+            <h6>📅 Lebenszyklus</h6>
+            <p>
+                <b>Bestellt:</b> {{ item["bestellt_am"] or '-' }}<br>
+                <b>Geliefert:</b> {{ item["geliefert_am"] or '-' }}<br>
+                <b>Übergeben:</b> {{ item["uebergeben_am"] or '-' }}
+            </p>
+        </div>
+
+        <!-- TESTING -->
+        <div class="col-md-6">
+            <h6>🔧 Prüfung</h6>
+            <p>
+                <b>Funktionsprüfung:</b> {{ item["funktionspruefung"] or '-' }}<br>
+                <b>Getestet am:</b> {{ item["getestet_am"] or '-' }}<br>
+                <b>Getestet von:</b> {{ item["getestet_von"] or '-' }}
+            </p>
+        </div>
+
+        <!-- NOTES -->
+        <div class="col-md-12 mt-3">
+            <h6>📝 Details</h6>
+            <p>
+                <b>Produktdetails:</b><br>
+                {{ item["produktdetails"] or '-' }}<br><br>
+
+                <b>Lieferumfang:</b><br>
+                {{ item["lieferumfang"] or '-' }}<br><br>
+
+                <b>Notiz:</b><br>
+                {{ item["notiz"] or '-' }}<br><br>
+
+                <b>Bemerkungen:</b><br>
+                {{ item["bemerkungen"] or '-' }}
+            </p>
+        </div>
+
+        <!-- META -->
+        <div class="col-md-12 mt-3 text-muted small">
+            Erstellt von {{ item["erstellt_von"] }} |
+            Geändert von {{ item["geaendert_von"] }}
+        </div>
+
+    </div>
+
 </div>
 {% endif %}
+
 {% endblock %}

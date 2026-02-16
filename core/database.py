@@ -152,11 +152,14 @@ def get_all_products():
 
 
 def get_product_by_code(code):
-    """Return one product row by its barcode/code."""
+    """Return one product row by its barcode/code as dictionary-like object."""
     conn = get_connection()
+    conn.row_factory = sqlite3.Row   # 👈 THIS IS THE MAGIC LINE
     cur = conn.cursor()
+
     cur.execute("SELECT * FROM inventory WHERE code=?;", (code,))
     row = cur.fetchone()
+
     conn.close()
     return row
 
