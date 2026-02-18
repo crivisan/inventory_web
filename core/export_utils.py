@@ -6,7 +6,6 @@ EXPORT_PATH = Path("./data/inventory_export.csv")
 
 def export_to_csv():
     rows = database.get_all_products()
-
     header = [
         "code",
         "projekt",
@@ -36,11 +35,23 @@ def export_to_csv():
         "erstellt_von",
         "geaendert_von",
     ]
+    # Remove double quotes from produktdetails column
+    cleaned_rows = []
+    for row in rows:
+        row = list(row)
+
+        # produktdetails index (based on your header order)
+        produktdetails_index = header.index("produktdetails")
+
+        if row[produktdetails_index]:
+            row[produktdetails_index] = row[produktdetails_index].replace(',', '.').replace('"', '').replace('-', ' ').replace('(', ' ').replace(')', ' ').replace('\n', ' ').replace(';', '.') #- #( # )
+
+        cleaned_rows.append(row)
 
     with open(EXPORT_PATH, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, delimiter=";")
         writer.writerow(header)
-        writer.writerows(rows)
+        writer.writerows(cleaned_rows)
 
     return EXPORT_PATH
 
