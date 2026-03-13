@@ -5,11 +5,10 @@ import os
 from core import database, label_printer, export_utils, user_utils, utils
 import json
 from pathlib import Path
-
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import io
 import datetime
-
+from flask import Response
 
 app = Flask(__name__)
 app.secret_key = "landlieben-secret"
@@ -376,10 +375,32 @@ def scan():
 # Export – CSV download
 # ---------------------------------------------------------
 @app.route("/export")
-def export_csv():
-    path = export_utils.export_to_csv()
+def export_all():
+    rows = database.get_all_products()
+    path = export_utils.export_rows_to_excel(rows, "Inventar_Alle.xlsx")
     return send_file(path, as_attachment=True)
 
+
+@app.route("/export_filtered", methods=["POST"])
+def export_filtered():
+    data = request.get_json()
+    ids = data.get("ids", [])
+
+    if not ids:
+        return "No data", 400
+
+    conn = database.get_connection()
+    cur = conn.cursor()
+
+    placeholders = ",".join(["?"] * len(ids))
+    query = f"SELECT * FROM inventory WHERE code IN ({placeholders})"
+    cur.execute(query, ids)
+    rows = cur.fetchall()
+    conn.close()
+
+    path = export_utils.export_rows_to_excel(rows, "Inventar_Filtered.xlsx")
+
+    return send_file(path, as_attachment=True)
 
 
 

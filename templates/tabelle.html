@@ -3,15 +3,94 @@
 
 <h2>📋 Inventar Tabelle</h2>
 
-<!-- Toolbar -->
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <input id="searchBox" type="text" class="form-control w-25" placeholder="🔍 Suche...">
-    <div>
+<!-- ================= ACTION BAR ================= -->
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+
+    <div class="d-flex gap-2 flex-wrap">
         <button id="editToggle" class="btn btn-warning">✏️ Bearbeiten</button>
         <button id="saveBtn" class="btn btn-success" disabled>💾 Speichern</button>
         <button id="deleteBtn" class="btn btn-danger">🗑️ Löschen</button>
         <button id="exportBtn" class="btn btn-outline-primary">📤 Exportieren (CSV)</button>
         <button id="printBtn" class="btn btn-outline-success">🖨️ Etiketten drucken</button>
+    </div>
+
+    <div>
+        <input id="searchBox" type="text" class="form-control" placeholder="🔍 Schnellsuche..."
+            style="min-width:250px;">
+    </div>
+
+</div>
+
+
+<!-- ================= FILTER SECTION ================= -->
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-light fw-bold">
+        🎛 Filteroptionen
+    </div>
+    <div class="card-body">
+
+        <div class="row g-3">
+
+            <div class="col-md-3">
+                <label class="form-label">Gemeinde</label>
+                <select id="filterGemeinde" class="form-select">
+                    <option value="">Alle</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Projekt</label>
+                <select id="filterProjekt" class="form-select">
+                    <option value="">Alle</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Kategorie</label>
+                <select id="filterKategorie" class="form-select">
+                    <option value="">Alle</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Anschaffungsjahr</label>
+                <select id="filterYear" class="form-select">
+                    <option value="">Alle</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Netto Preis von (€)</label>
+                <input type="number" id="filterMinPrice" class="form-control">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Netto Preis bis (€)</label>
+                <input type="number" id="filterMaxPrice" class="form-control">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Geliefert ab</label>
+                <input type="date" id="filterFromDate" class="form-control">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Geliefert bis</label>
+                <input type="date" id="filterToDate" class="form-control">
+            </div>
+
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+            <button id="applyFilters" class="btn btn-primary">
+                🔎 Anwenden
+            </button>
+
+            <button id="resetFilters" class="btn btn-outline-secondary">
+                ↺ Zurücksetzen
+            </button>
+        </div>
+
     </div>
 </div>
 
@@ -101,6 +180,21 @@
     const deleteBtn = document.getElementById("deleteBtn");
     const selectAll = document.getElementById("selectAll");
 
+    // filters
+    const filterGemeinde = document.getElementById("filterGemeinde");
+    const filterProjekt = document.getElementById("filterProjekt");
+    const filterKategorie = document.getElementById("filterKategorie");
+    const filterYear = document.getElementById("filterYear");
+    const filterMinPrice = document.getElementById("filterMinPrice");
+    const filterMaxPrice = document.getElementById("filterMaxPrice");
+    const filterFromDate = document.getElementById("filterFromDate");
+    const filterToDate = document.getElementById("filterToDate");
+
+    const applyFiltersBtn = document.getElementById("applyFilters");
+    const resetFiltersBtn = document.getElementById("resetFilters");
+
+
+
     let editMode = false;
     let changedRows = new Set();
 
@@ -133,8 +227,19 @@
 
     // ------------------ SELECT ALL ------------------
     selectAll.addEventListener("change", () => {
-        document.querySelectorAll(".row-check").forEach(cb => {
-            cb.checked = selectAll.checked;
+
+        const rows = table.querySelectorAll("tbody tr");
+
+        rows.forEach(row => {
+
+            // Only affect visible rows
+            if (row.style.display !== "none") {
+                const checkbox = row.querySelector(".row-check");
+                if (checkbox) {
+                    checkbox.checked = selectAll.checked;
+                }
+            }
+
         });
     });
 
@@ -226,9 +331,46 @@
     });
 
 
-    // ------------------ EXPORT ------------------
+    // ------------------ EXPORT (VISIBLE ROWS ONLY) ------------------
     document.getElementById("exportBtn").addEventListener("click", () => {
-        window.location.href = "/export";
+
+        const visibleRows = Array.from(
+            table.querySelectorAll("tbody tr")
+        ).filter(row => row.style.display !== "none");
+
+        if (visibleRows.length === 0) {
+            alert("Keine sichtbaren Zeilen zum Exportieren.");
+            return;
+        }
+
+        const ids = visibleRows.map(row => row.dataset.id);
+
+        fetch("/export_filtered", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids })
+        })
+            .then(response => {
+                if (!response.ok) throw new Error("Export fehlgeschlagen");
+                return response.blob();
+            })
+            .then(blob => {
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+
+                // IMPORTANT: Match backend filename
+                a.download = "Inventar_Filtered.xlsx";
+
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+            })
+            .catch(err => alert("Fehler beim Export: " + err));
+
     });
 
 
@@ -267,6 +409,113 @@
                 window.URL.revokeObjectURL(url);
             })
             .catch(err => alert("Fehler beim Herunterladen: " + err));
+    });
+
+    //Filter functions
+    function populateFilters() {
+        const rows = table.querySelectorAll("tbody tr");
+
+        const gemeinden = new Set();
+        const projekte = new Set();
+        const kategorien = new Set();
+        const jahre = new Set();
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll("td");
+
+            const projekt = cells[2]?.innerText.trim();
+            const gemeinde = cells[3]?.innerText.trim();
+            const kategorie = cells[5]?.innerText.trim();
+            const jahr = cells[22]?.innerText.trim(); // Anschaffungsjahr
+
+            if (gemeinde) gemeinden.add(gemeinde);
+            if (projekt) projekte.add(projekt);
+            if (kategorie) kategorien.add(kategorie);
+            if (jahr) jahre.add(jahr);
+        });
+
+        function fillSelect(select, values) {
+            values.forEach(val => {
+                const option = document.createElement("option");
+                option.value = val;
+                option.textContent = val;
+                select.appendChild(option);
+            });
+        }
+
+        fillSelect(filterGemeinde, [...gemeinden].sort());
+        fillSelect(filterProjekt, [...projekte].sort());
+        fillSelect(filterKategorie, [...kategorien].sort());
+        fillSelect(filterYear, [...jahre].sort());
+    }
+
+    populateFilters();
+
+    function applyFilters() {
+
+        const textFilter = searchBox.value.toLowerCase();
+
+        const gemeindeFilter = filterGemeinde.value;
+        const projektFilter = filterProjekt.value;
+        const kategorieFilter = filterKategorie.value;
+        const yearFilter = filterYear.value;
+
+        const minPrice = parseFloat(filterMinPrice.value) || null;
+        const maxPrice = parseFloat(filterMaxPrice.value) || null;
+
+        const fromDate = filterFromDate.value;
+        const toDate = filterToDate.value;
+
+        const rows = table.querySelectorAll("tbody tr");
+
+        rows.forEach(row => {
+
+            const cells = row.querySelectorAll("td");
+
+            const textMatch = row.innerText.toLowerCase().includes(textFilter);
+
+            const projekt = cells[2]?.innerText.trim();
+            const gemeinde = cells[3]?.innerText.trim();
+            const kategorie = cells[5]?.innerText.trim();
+            const netto = parseFloat(cells[10]?.innerText.replace(",", "."));
+            const geliefert = cells[15]?.innerText.trim();
+            const jahr = cells[22]?.innerText.trim();
+
+            let match = true;
+
+            if (gemeindeFilter && gemeinde !== gemeindeFilter) match = false;
+            if (projektFilter && projekt !== projektFilter) match = false;
+            if (kategorieFilter && kategorie !== kategorieFilter) match = false;
+            if (yearFilter && jahr !== yearFilter) match = false;
+
+            if (minPrice !== null && (isNaN(netto) || netto < minPrice)) match = false;
+            if (maxPrice !== null && (isNaN(netto) || netto > maxPrice)) match = false;
+
+            if (fromDate && geliefert && geliefert < fromDate) match = false;
+            if (toDate && geliefert && geliefert > toDate) match = false;
+
+            if (!textMatch) match = false;
+
+            row.style.display = match ? "" : "none";
+        });
+    }
+
+    applyFiltersBtn.addEventListener("click", applyFilters);
+
+    resetFiltersBtn.addEventListener("click", () => {
+
+        filterGemeinde.value = "";
+        filterProjekt.value = "";
+        filterKategorie.value = "";
+        filterYear.value = "";
+        filterMinPrice.value = "";
+        filterMaxPrice.value = "";
+        filterFromDate.value = "";
+        filterToDate.value = "";
+
+        searchBox.value = "";
+
+        applyFilters();
     });
 
 </script>
